@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "build": {
+    "env": {
+      "CI": "false"
+    }
+  },
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build"
+}
