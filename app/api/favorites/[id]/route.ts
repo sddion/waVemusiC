@@ -3,10 +3,10 @@ import { createClient } from '@/lib/supabase'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: songId } = params
+    const { id: songId } = await params
 
     // Validate song ID
     if (!songId || typeof songId !== 'string' || songId.trim() === '') {
@@ -49,10 +49,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: songId } = params
+    const { id: songId } = await params
 
     // Validate song ID
     if (!songId || typeof songId !== 'string' || songId.trim() === '') {

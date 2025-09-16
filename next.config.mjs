@@ -1,3 +1,5 @@
+import path from 'path'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -28,10 +30,20 @@ const nextConfig = {
       };
     }
     
+    // Ensure path aliases are resolved correctly
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname),
+    };
+    
     return config;
   },
   // External packages for server components
   serverExternalPackages: ['animejs'],
+  // Experimental features
+  experimental: {
+    // Add other experimental features here if needed
+  },
 }
 
 export default nextConfig

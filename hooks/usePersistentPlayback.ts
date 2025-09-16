@@ -10,10 +10,7 @@ import {
   addToRecentlyPlayed,
   setLastPlayedInfo,
   restoreLastPlayed,
-  setVolume,
-  setMuted,
-  setShuffled,
-  setRepeatMode
+  setVolume
 } from '@/store/audioStore'
 
 export function usePersistentPlayback() {
@@ -23,15 +20,13 @@ export function usePersistentPlayback() {
     songs, 
     currentSongIndex, 
     isPlaying, 
-    currentSong, 
     playSelectedSong: originalPlaySelectedSong,
     setCurrentSongIndex,
     setCurrentTime,
-    setVolume: setMusicStoreVolume,
-    setMuted: setMusicStoreMuted,
-    setShuffled: setMusicStoreShuffled,
-    setRepeatMode: setMusicStoreRepeatMode
+    setVolume: setMusicStoreVolume
   } = useMusicStore()
+  
+  const currentSong = songs && songs.length > 0 ? songs[currentSongIndex] : null
   
   const isInitialized = useRef(false)
 
@@ -40,17 +35,11 @@ export function usePersistentPlayback() {
     if (!isInitialized.current && songs && songs.length > 0) {
       isInitialized.current = true
       
-      // Restore volume, mute, shuffle, repeat settings
+      // Restore volume settings
       dispatch(setVolume(audioState.volume))
-      dispatch(setMuted(audioState.isMuted))
-      dispatch(setShuffled(audioState.isShuffled))
-      dispatch(setRepeatMode(audioState.repeatMode))
       
       // Sync with music store
       setMusicStoreVolume(audioState.volume)
-      setMusicStoreMuted(audioState.isMuted)
-      setMusicStoreShuffled(audioState.isShuffled)
-      setMusicStoreRepeatMode(audioState.repeatMode)
       
       // Restore last played song if available
       if (audioState.lastPlayedSongId && audioState.lastPlayedIndex >= 0) {
@@ -70,7 +59,7 @@ export function usePersistentPlayback() {
         }
       }
     }
-  }, [songs, audioState, dispatch, setCurrentSongIndex, setCurrentTime, setMusicStoreVolume, setMusicStoreMuted, setMusicStoreShuffled, setMusicStoreRepeatMode])
+  }, [songs, audioState, dispatch, setCurrentSongIndex, setCurrentTime, setMusicStoreVolume])
 
   // Sync songs with Redux queue when songs change
   useEffect(() => {

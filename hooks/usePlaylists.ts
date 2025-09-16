@@ -16,16 +16,21 @@ export interface Playlist {
 }
 
 export function usePlaylists() {
-  const { songs, favorites } = useMusicStore()
+  const musicStore = useMusicStore()
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Safely extract values with fallbacks
+  const songs = musicStore?.songs || []
+  const favorites = musicStore?.favorites || []
 
   // Generate dynamic playlists based on actual data
   useEffect(() => {
-    if (!songs || songs.length === 0) {
-      setIsLoading(false)
-      return
-    }
+    try {
+      if (!songs || songs.length === 0) {
+        setIsLoading(false)
+        return
+      }
 
     const generatePlaylists = (): Playlist[] => {
       const safeSongs = songs || []
@@ -50,19 +55,21 @@ export function usePlaylists() {
       }
 
       // 2. Favorites playlist
-      if (favorites.length > 0) {
+      if (favorites && favorites.length > 0) {
         const favoriteSongs = safeSongs.filter(song => favorites.includes(song.id))
-        dynamicPlaylists.push({
-          id: 'favorites',
-          name: 'My Favorites',
-          description: 'Songs you love',
-          songCount: favoriteSongs.length,
-          color: 'rgba(239, 68, 68, 0.2)', // Red
-          songs: favoriteSongs,
-          isPublic: false,
-          createdAt: now,
-          updatedAt: now,
-        })
+        if (favoriteSongs.length > 0) {
+          dynamicPlaylists.push({
+            id: 'favorites',
+            name: 'My Favorites',
+            description: 'Songs you love',
+            songCount: favoriteSongs.length,
+            color: 'rgba(239, 68, 68, 0.2)', // Red
+            songs: favoriteSongs,
+            isPublic: false,
+            createdAt: now,
+            updatedAt: now,
+          })
+        }
       }
 
       // 3. Recently Added (last 20 songs)
@@ -152,9 +159,14 @@ export function usePlaylists() {
       return dynamicPlaylists
     }
 
-    const generatedPlaylists = generatePlaylists()
-    setPlaylists(generatedPlaylists)
-    setIsLoading(false)
+      const generatedPlaylists = generatePlaylists()
+      setPlaylists(generatedPlaylists)
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Error generating playlists:', error)
+      setPlaylists([])
+      setIsLoading(false)
+    }
   }, [songs, favorites])
 
   // Create a new playlist

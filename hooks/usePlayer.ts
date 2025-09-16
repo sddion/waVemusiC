@@ -69,7 +69,8 @@ export function usePlayer(): PlayerState & PlayerActions {
       const audio = new Audio()
       audio.preload = 'metadata'
       audio.crossOrigin = 'anonymous'
-      audioRef.current = audio
+      // Use Object.assign to bypass readonly restriction
+      Object.assign(audioRef, { current: audio })
       setIsInitialized(true)
     }
   }, [])
@@ -120,7 +121,7 @@ export function usePlayer(): PlayerState & PlayerActions {
       audio.removeEventListener('error', handleError)
       audio.removeEventListener('loadstart', handleLoadStart)
     }
-  }, [isInitialized, isPlaying, setCurrentTime, setDuration, handleTrackEnd])
+  }, [isInitialized, isPlaying, setCurrentTime, setDuration])
 
   // Handle current song changes
   useEffect(() => {
@@ -164,6 +165,21 @@ export function usePlayer(): PlayerState & PlayerActions {
       nextSong()
     }
   }, [repeatMode, nextSong])
+
+  // Update effect dependencies to include handleTrackEnd
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !isInitialized) return
+
+    const handleEnded = () => {
+      handleTrackEnd()
+    }
+
+    audio.addEventListener('ended', handleEnded)
+    return () => {
+      audio.removeEventListener('ended', handleEnded)
+    }
+  }, [isInitialized, handleTrackEnd])
 
   // Player actions
   const play = useCallback(() => {
@@ -280,16 +296,16 @@ export function usePlayer(): PlayerState & PlayerActions {
 
       const songs = (playlistSongs?.map((ps: any) => ps.songs).filter(Boolean) || []) as MusicSong[]
       if (songs.length > 0) {
-        setCurrentQueue(songs)
+        setQueue(songs)
         setCurrentQueueIndex(0)
         setCurrentSongIndex(0)
-        playSong()
+        playSelectedSong(0)
         console.log('Playing playlist:', playlistId, 'with', songs.length, 'songs')
       }
     } catch (error) {
       console.error("Failed to play playlist:", error)
     }
-  }, [setCurrentQueue, setCurrentQueueIndex, setCurrentSongIndex, playSong])
+  }, [setCurrentQueueIndex, setCurrentSongIndex, playSelectedSong])
 
   // Enhanced next/previous with queue support
   const nextTrack = useCallback(() => {

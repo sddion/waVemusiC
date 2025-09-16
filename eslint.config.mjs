@@ -19,7 +19,6 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "scripts/**",
-      "wave-music-player/**",
     ],
   },
   {
@@ -27,7 +26,6 @@ const eslintConfig = [
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": "warn",
       "react-hooks/exhaustive-deps": "warn",
-      "no-console": "warn",
     },
   },
 ];

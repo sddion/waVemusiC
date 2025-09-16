@@ -342,7 +342,7 @@ export const useMusicStore = create<MusicState>()(
 
     loadSongsWithFallback: async () => {
       try {
-        console.log("[v0] Loading songs...")
+        console.log("Loading songs...")
         set({ isLoading: true })
 
         const supabase = createClient()
@@ -571,7 +571,7 @@ export const useMusicStore = create<MusicState>()(
         if (favorites.includes(songId)) {
           // Remove from favorites
           const { error } = await supabase
-            .from("user_favorites")
+            .from("public_favorites")
             .delete()
             .eq("song_id", songId)
 
@@ -585,7 +585,7 @@ export const useMusicStore = create<MusicState>()(
         } else {
           // Add to favorites
           const { error } = await supabase
-            .from("user_favorites")
+            .from("public_favorites")
             .insert({
               song_id: songId,
             })
@@ -607,7 +607,7 @@ export const useMusicStore = create<MusicState>()(
       try {
         const supabase = createClient()
         const { data: favorites, error } = await supabase
-          .from("user_favorites")
+          .from("public_favorites")
           .select("song_id")
 
         if (error) {

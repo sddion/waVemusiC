@@ -8,7 +8,7 @@ import { useDispatch } from 'react-redux'
 import { AppDispatch } from '@/store'
 import { setLastPlayedInfo } from '@/store/audioStore'
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, Heart, List } from "lucide-react"
-import anime from "@/lib/anime"
+import { getAnime } from "@/lib/anime"
 import Image from "next/image"
 
 export default function MusicPlayer() {
@@ -55,9 +55,8 @@ export default function MusicPlayer() {
       const audio = new Audio()
       audio.preload = 'metadata'
       audio.crossOrigin = 'anonymous'
-      if (audioRef.current === null) {
-        (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = audio
-      }
+      // Use Object.assign to bypass readonly restriction
+      Object.assign(audioRef, { current: audio })
     }
   }, [])
 
@@ -149,26 +148,32 @@ export default function MusicPlayer() {
   // Initialize anime.js animations
   useEffect(() => {
     if (playerRef.current) {
-      anime({
-        targets: playerRef.current,
-        opacity: [0, 1],
-        translateY: [20, 0],
-        duration: 800,
-        easing: 'easeOutExpo'
-      })
+      const anime = getAnime()
+      if (anime) {
+        anime({
+          targets: playerRef.current,
+          opacity: [0, 1],
+          translateY: [20, 0],
+          duration: 800,
+          easing: 'easeOutExpo'
+        })
+      }
     }
   }, [])
 
   // Animate progress bar
   useEffect(() => {
     if (progressRef.current && duration > 0) {
-      const progressPercent = (currentTime / duration) * 100
-      anime({
-        targets: progressRef.current,
-        width: `${Math.min(100, Math.max(0, progressPercent))}%`,
-        duration: 100,
-        easing: 'easeOutQuad'
-      })
+      const anime = getAnime()
+      if (anime) {
+        const progressPercent = (currentTime / duration) * 100
+        anime({
+          targets: progressRef.current,
+          width: `${Math.min(100, Math.max(0, progressPercent))}%`,
+          duration: 100,
+          easing: 'easeOutQuad'
+        })
+      }
     }
   }, [currentTime, duration])
 
@@ -176,12 +181,15 @@ export default function MusicPlayer() {
   useEffect(() => {
     const playButton = document.querySelector('.play-pause-btn')
     if (playButton) {
-      anime({
-        targets: playButton,
-        scale: isPlaying ? [1, 1.1, 1] : [1, 0.9, 1],
-        duration: 200,
-        easing: 'easeOutQuad'
-      })
+      const anime = getAnime()
+      if (anime) {
+        anime({
+          targets: playButton,
+          scale: isPlaying ? [1, 1.1, 1] : [1, 0.9, 1],
+          duration: 200,
+          easing: 'easeOutQuad'
+        })
+      }
     }
   }, [isPlaying])
 
@@ -207,12 +215,15 @@ export default function MusicPlayer() {
       // Animate heart icon
       const heartIcon = document.querySelector('.favorite-btn')
       if (heartIcon) {
-        anime({
-          targets: heartIcon,
-          scale: [1, 1.3, 1],
-          duration: 300,
-          easing: 'easeOutElastic(1, .8)'
-        })
+        const anime = getAnime()
+        if (anime) {
+          anime({
+            targets: heartIcon,
+            scale: [1, 1.3, 1],
+            duration: 300,
+            easing: 'easeOutElastic(1, .8)'
+          })
+        }
       }
     }
   }
@@ -222,13 +233,16 @@ export default function MusicPlayer() {
     // Animate queue panel
     const queuePanel = document.querySelector('.queue-panel')
     if (queuePanel) {
-      anime({
-        targets: queuePanel,
-        opacity: showQueue ? [1, 0] : [0, 1],
-        translateX: showQueue ? [0, 20] : [20, 0],
-        duration: 300,
-        easing: 'easeOutQuad'
-      })
+      const anime = getAnime()
+      if (anime) {
+        anime({
+          targets: queuePanel,
+          opacity: showQueue ? [1, 0] : [0, 1],
+          translateX: showQueue ? [0, 20] : [20, 0],
+          duration: 300,
+          easing: 'easeOutQuad'
+        })
+      }
     }
   }
 
