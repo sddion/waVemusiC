@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useMusicStore, type MusicSong } from "@/store/musicStore"
 import { useDispatch } from 'react-redux'
 import { AppDispatch } from '@/store'
@@ -56,6 +56,29 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
     : songs && songs.length > 0 
       ? songs[currentSongIndex] 
       : null
+
+  // Function to track song plays
+  const trackSongPlay = useCallback(async (songId: string, playDuration: number = 0) => {
+    try {
+      // Check if it's an API song by looking at the songs arrays
+      const isApiSong = apiSongs.some(song => song.id === songId) || 
+                        (currentSong && currentSong.source === 'api')
+      const endpoint = isApiSong ? '/api/api-track-play' : '/api/track-play'
+      
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          songId,
+          playDuration
+        })
+      })
+    } catch (error) {
+      console.error('Error tracking song play:', error)
+    }
+  }, [apiSongs, currentSong])
 
   // Initialize audio element
   useEffect(() => {
@@ -143,7 +166,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
       audio.removeEventListener('error', handleError)
       audio.removeEventListener('loadstart', handleLoadStart)
     }
-  }, [isPlaying, setCurrentTime, setDuration, repeatMode, nextSong, currentSong, currentSongIndex, currentQueue, currentQueueIndex, dispatch, duration])
+  }, [isPlaying, setCurrentTime, setDuration, repeatMode, nextSong, currentSong, currentSongIndex, currentQueue, currentQueueIndex, dispatch, duration, trackSongPlay])
 
   // Handle current song changes
   useEffect(() => {
@@ -238,24 +261,6 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
   const handleDirectSongPlay = (songIndex: number) => {
     if (songs && songs[songIndex]) {
       playSong()
-    }
-  }
-
-  // Function to track song plays
-  const trackSongPlay = async (songId: string, playDuration: number = 0) => {
-    try {
-      await fetch('/api/track-play', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          songId,
-          playDuration
-        })
-      })
-    } catch (error) {
-      console.error('Error tracking song play:', error)
     }
   }
 

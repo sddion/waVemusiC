@@ -1,4 +1,4 @@
-# Wave Music Player
+# Ragava Music Player
 
 A modern, responsive music player built with Next.js 15, TypeScript, and Supabase. Features cloud storage, real-time sync, and a beautiful UI with anime.js animations.
 

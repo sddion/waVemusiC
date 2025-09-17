@@ -43,8 +43,13 @@ export default function HomePage() {
   // Use actual playlist logic
   const { playlists = [], isLoading: playlistsLoading = false, createPlaylist } = usePlaylists()
   
-  // Ensure songs is always an array
+  // Combine local and API songs for display
   const safeSongs = songs || []
+  const safeApiSongs = apiSongs || []
+  const allSongs = [...safeSongs, ...safeApiSongs]
+  
+  // Combine favorites from both sources
+  const allFavorites = [...(favorites || []), ...(apiFavorites || [])]
   
   // State for playlist management
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null)
@@ -115,9 +120,9 @@ export default function HomePage() {
                     <h3 className="text-xl font-semibold text-foreground">Recently Played</h3>
                   </div>
                   
-                  {safeSongs.length > 0 ? (
+                  {allSongs.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {safeSongs.slice(0, 6).map((song: MusicSong, index: number) => {
+                      {allSongs.slice(0, 6).map((song: MusicSong, index: number) => {
                         const isCurrentlyPlaying = currentSongIndex === index && isPlaying
                         
                         return (
@@ -194,17 +199,24 @@ export default function HomePage() {
                                 <button
                                   onClick={(e) => handleFavoriteClick(e, song.id)}
                                   className={`p-1.5 rounded-full transition-colors ${
-                                    favorites.includes(song.id)
+                                    allFavorites.includes(song.id)
                                       ? "text-red-500"
                                       : "text-muted-foreground hover:text-foreground"
                                   }`}
                                 >
-                                  <Heart size={14} fill={favorites.includes(song.id) ? "currentColor" : "none"} />
+                                  <Heart size={14} fill={allFavorites.includes(song.id) ? "currentColor" : "none"} />
                                 </button>
                                 
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {formatTime(song.duration || 0)}
-                                </span>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-muted-foreground font-mono">
+                                    {formatTime(song.duration || 0)}
+                                  </span>
+                                  {song.source === 'api' && (
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
+                                      API
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -231,16 +243,16 @@ export default function HomePage() {
                       <Heart className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-foreground">Your Favorites</h3>
-                    <span className="text-sm text-muted-foreground">({favorites.length} songs)</span>
+                    <span className="text-sm text-muted-foreground">({allFavorites.length} songs)</span>
                   </div>
                   
-                  {favorites.length > 0 ? (
+                  {allFavorites.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {safeSongs
-                        .filter(song => favorites.includes(song.id))
+                      {allSongs
+                        .filter(song => allFavorites.includes(song.id))
                         .slice(0, 6)
                         .map((song: MusicSong) => {
-                          const originalIndex = safeSongs.findIndex(s => s.id === song.id)
+                          const originalIndex = allSongs.findIndex(s => s.id === song.id)
                           const isCurrentlyPlaying = currentSongIndex === originalIndex && isPlaying
                           
                           return (
@@ -522,14 +534,21 @@ export default function HomePage() {
                             <button
                               onClick={(e) => handleFavoriteClick(e, song.id)}
                               className={`p-1 rounded-full transition-colors ${
-                                favorites.includes(song.id) ? "text-red-500" : "text-muted-foreground hover:text-foreground"
+                                allFavorites.includes(song.id) ? "text-red-500" : "text-muted-foreground hover:text-foreground"
                               }`}
                             >
-                              <Heart size={14} fill={favorites.includes(song.id) ? "currentColor" : "none"} />
+                              <Heart size={14} fill={allFavorites.includes(song.id) ? "currentColor" : "none"} />
                             </button>
-                            <span className="text-xs text-muted-foreground font-mono">
-                              {formatTime(song.duration || 0)}
-                            </span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {formatTime(song.duration || 0)}
+                              </span>
+                              {song.source === 'api' && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
+                                  API
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}

@@ -107,8 +107,8 @@ export default function Layout({ children }: LayoutProps) {
             {/* Logo, Upload, Theme Toggle and Mobile Menu */}
             <div className="flex items-center space-x-2">
               <Image
-                src="/wave_logo.png"
-                alt="Wave Music Player"
+                src="/ragavaLogo.png"
+                alt="Ragava Music Player"
                 width={32}
                 height={32}
                 className="rounded-lg"
