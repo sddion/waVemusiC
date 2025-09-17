@@ -23,18 +23,20 @@ CRON_SECRET=your_secure_random_string_here
 3. Add each variable for **Production**, **Preview**, and **Development** environments
 4. Make sure to use a strong, random string for `CRON_SECRET`
 
-### 2. Database Migration
+### 2. Database Setup
 
-Before deploying, ensure you've run the database migration:
+Before deploying, ensure you've run your database schema:
 
 1. Go to your Supabase dashboard
 2. Navigate to **SQL Editor**
-3. Run the migration from `supabase/migrations/002_trending_songs_fixed.sql`
+3. Run your existing `supabase/schema.sql` file
 4. Verify that the following tables and functions are created:
    - `play_tracking` table
    - `trending_songs` table
    - `update_trending_songs()` function
    - `track_song_play()` function
+
+**Note:** Your `schema.sql` already contains all the trending functionality - no additional migration needed!
 
 ### 3. Vercel Cron Job Configuration
 
