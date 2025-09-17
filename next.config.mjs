@@ -14,11 +14,10 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    unoptimized: false,
   },
-  // Simplified webpack configuration to fix module loading issues
+
   webpack: (config, { isServer }) => {
-    // Fix Node.js modules for client-side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -32,10 +31,11 @@ const nextConfig = {
         process: false,
         path: false,
         os: false,
+        ws: false,
       };
     }
     
-    // Ensure path aliases are resolved correctly
+  
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname),
@@ -44,7 +44,7 @@ const nextConfig = {
     return config;
   },
   // External packages for server components
-  serverExternalPackages: ['animejs'],
+  serverExternalPackages: [],
   // Experimental features
   experimental: {
     // Add other experimental features here if needed

@@ -8,7 +8,8 @@ import { useMusicStore } from "@/store/musicStore"
 import { supabase } from "@/lib/supabase"
 import MusicPlayer from "./MusicPlayer"
 import BottomNavigation from "./BottomNavigation"
-import { Home, Upload, Settings, User, Search, Moon, Sun } from "lucide-react"
+import QueuePanel from "./QueueTable"
+import { Home, Upload, Search, Moon, Sun } from "lucide-react"
 import SearchBar from "./SearchBar"
 import Image from "next/image"
 
@@ -21,6 +22,7 @@ export default function Layout({ children }: LayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isDark, setIsDark] = useState(true) // Default to dark mode
+  const [isQueueOpen, setIsQueueOpen] = useState(false)
 
   useEffect(() => {
     loadSongsWithFallback()
@@ -69,24 +71,6 @@ export default function Layout({ children }: LayoutProps) {
       onClick: () => router.push("/"),
       isActive: pathname === "/",
     },
-    {
-      icon: <Upload size={20} />,
-      label: "Upload",
-      onClick: () => router.push("/upload"),
-      isActive: pathname === "/upload",
-    },
-    {
-      icon: <Settings size={20} />,
-      label: "Settings",
-      onClick: () => router.push("/settings"),
-      isActive: pathname === "/settings",
-    },
-    {
-      icon: <User size={20} />,
-      label: "Profile",
-      onClick: () => router.push("/profile"),
-      isActive: pathname === "/profile",
-    },
   ]
 
   return (
@@ -97,19 +81,6 @@ export default function Layout({ children }: LayoutProps) {
       <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Image
-                  src="/wave_logo.png"
-                  alt="Wave Music Player"
-                  width={32}
-                  height={32}
-                  className="rounded-lg"
-                />
-                <h1 className="text-xl font-bold text-foreground hidden sm:block">Wave Music</h1>
-              </div>
-            </div>
-            
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-1">
               {navItems.map((item, index) => (
@@ -133,8 +104,22 @@ export default function Layout({ children }: LayoutProps) {
               <SearchBar />
             </div>
 
-            {/* Theme Toggle and Mobile Menu */}
+            {/* Logo, Upload, Theme Toggle and Mobile Menu */}
             <div className="flex items-center space-x-2">
+              <Image
+                src="/wave_logo.png"
+                alt="Wave Music Player"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+              <button
+                onClick={() => router.push("/upload")}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                title="Upload Music"
+              >
+                <Upload className="w-5 h-5" />
+              </button>
               <button
                 onClick={toggleTheme}
                 className="p-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -159,13 +144,16 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* Music Player - Minimized and Consistent */}
           <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg">
-            <MusicPlayer />
+            <MusicPlayer onQueueClick={() => setIsQueueOpen(true)} />
           </div>
 
           {/* Bottom Navigation - Mobile Only */}
           <div className="md:hidden">
             <BottomNavigation />
           </div>
+          
+          {/* Queue Panel */}
+          <QueuePanel isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} />
         </div>
   )
 }

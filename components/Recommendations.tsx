@@ -3,7 +3,7 @@
 import { useMusicStore, type MusicSong } from "@/store/musicStore"
 import Image from "next/image"
 import { Play, Heart, Clock, TrendingUp, Star, Music } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface RecommendationSection {
   title: string
@@ -13,32 +13,126 @@ interface RecommendationSection {
   color: string
 }
 
+interface TrendingSong {
+  id: string
+  title: string
+  artist: string
+  album: string
+  duration: number
+  file_url: string
+  cover_url?: string
+  genre?: string
+  year?: number
+  play_count: number
+  last_played?: string
+  created_at: string
+  trending_play_count: number
+  trending_ranking: number
+  trending_date: string
+}
+
 export default function Recommendations() {
   const { songs, favorites, playSelectedSong, toggleFavorite } = useMusicStore()
   const [hoveredSong, setHoveredSong] = useState<string | null>(null)
+  const [trendingSongs, setTrendingSongs] = useState<TrendingSong[]>([])
+  const [isLoadingTrending, setIsLoadingTrending] = useState(true)
 
   const safeSongs = songs || []
 
+  // Fetch trending songs
+  useEffect(() => {
+    const fetchTrendingSongs = async () => {
+      try {
+        setIsLoadingTrending(true)
+        const response = await fetch('/api/trending?limit=6')
+        if (response.ok) {
+          const data = await response.json()
+          setTrendingSongs(data.songs || [])
+        }
+      } catch (error) {
+        console.error('Error fetching trending songs:', error)
+      } finally {
+        setIsLoadingTrending(false)
+      }
+    }
+
+    fetchTrendingSongs()
+  }, [])
+
   // Generate personalized recommendations based on user data
+  const getTimeBasedRecommendations = () => {
+    const hour = new Date().getHours()
+    if (hour >= 6 && hour < 12) {
+      return { title: "Morning Vibes", subtitle: "Perfect for starting your day" }
+    } else if (hour >= 12 && hour < 17) {
+      return { title: "Afternoon Energy", subtitle: "Keep the momentum going" }
+    } else if (hour >= 17 && hour < 21) {
+      return { title: "Evening Chill", subtitle: "Wind down with these tracks" }
+    } else {
+      return { title: "Late Night Vibes", subtitle: "Deep tracks for the night owls" }
+    }
+  }
+
+  const timeBased = getTimeBasedRecommendations()
+
+  // Convert trending songs to MusicSong format for consistency
+  const trendingMusicSongs: MusicSong[] = trendingSongs.map(trending => ({
+    id: trending.id,
+    title: trending.title,
+    artist: trending.artist,
+    album: trending.album,
+    duration: trending.duration,
+    file_url: trending.file_url,
+    cover_url: trending.cover_url,
+    genre: trending.genre,
+    year: trending.year,
+    play_count: trending.play_count,
+    last_played: trending.last_played,
+    created_at: trending.created_at,
+    updated_at: trending.created_at,
+    source: 'local' as const
+  }))
+
   const recommendations: RecommendationSection[] = [
+    {
+      title: timeBased.title,
+      subtitle: timeBased.subtitle,
+      icon: <Clock className="w-5 h-5" />,
+      songs: safeSongs.slice(0, 6),
+      color: "rgba(34, 197, 94, 0.2)",
+    },
     {
       title: "Made for You",
       subtitle: "Based on your listening history",
       icon: <Star className="w-5 h-5" />,
-      songs: safeSongs.slice(0, 6),
+      songs: safeSongs.slice(6, 12),
       color: "rgba(236, 72, 153, 0.2)",
     },
     {
       title: "Trending Now",
       subtitle: "What's popular right now",
       icon: <TrendingUp className="w-5 h-5" />,
-      songs: safeSongs.slice(6, 12),
+      songs: isLoadingTrending ? safeSongs.slice(12, 18) : trendingMusicSongs,
       color: "rgba(14, 165, 233, 0.2)",
     },
   ]
 
-  const handleSongClick = (index: number) => {
-    playSelectedSong(index)
+  const handleSongClick = (index: number, sectionTitle: string) => {
+    if (sectionTitle === "Trending Now" && !isLoadingTrending) {
+      // For trending songs, find the song in the main songs array
+      const trendingSong = trendingMusicSongs[index]
+      if (trendingSong) {
+        const songIndex = safeSongs.findIndex(song => song.id === trendingSong.id)
+        if (songIndex !== -1) {
+          playSelectedSong(songIndex)
+        } else {
+          console.warn('Trending song not found in main library:', trendingSong.title)
+        }
+      }
+    } else {
+      // For other sections, use the index directly
+      playSelectedSong(index)
+    }
   }
 
   const handleFavoriteClick = async (e: React.MouseEvent, songId: string) => {
@@ -75,7 +169,7 @@ export default function Recommendations() {
               <div
                 key={song.id}
                 className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-3 hover:bg-card/80 hover:border-border transition-all duration-200 cursor-pointer group"
-                onClick={() => handleSongClick(index)}
+                onClick={() => handleSongClick(index, section.title)}
                 onMouseEnter={() => setHoveredSong(song.id)}
                 onMouseLeave={() => setHoveredSong(null)}
               >

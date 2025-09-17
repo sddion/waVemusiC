@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Home, Search, Music, User, Upload } from "lucide-react"
+import { Home, Search, Upload } from "lucide-react"
 
 interface NavItem {
   icon: React.ReactNode
@@ -28,22 +28,10 @@ export default function BottomNavigation() {
       isActive: pathname === "/search",
     },
     {
-      icon: <Music size={20} />,
-      label: "Library",
-      href: "/library",
-      isActive: pathname === "/library",
-    },
-    {
       icon: <Upload size={20} />,
       label: "Upload",
       href: "/upload",
       isActive: pathname === "/upload",
-    },
-    {
-      icon: <User size={20} />,
-      label: "Profile",
-      href: "/profile",
-      isActive: pathname === "/profile",
     },
   ]
 

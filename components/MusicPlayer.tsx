@@ -8,15 +8,19 @@ import { useDispatch } from 'react-redux'
 import { AppDispatch } from '@/store'
 import { setLastPlayedInfo } from '@/store/audioStore'
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, Heart, List } from "lucide-react"
-import { getAnime } from "@/lib/anime"
+import { slideInFromBottom, scaleButton, animateProgress, animateHeart, isGSAPAvailable } from "@/lib/gsap"
 import Image from "next/image"
 
-export default function MusicPlayer() {
+interface MusicPlayerProps {
+  onQueueClick?: () => void
+}
+
+export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<HTMLDivElement>(null)
-  const [showQueue, setShowQueue] = useState(false)
   const dispatch = useDispatch<AppDispatch>()
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false)
 
   const {
     songs,
@@ -40,14 +44,11 @@ export default function MusicPlayer() {
     toggleShuffle,
     syncPlaybackState,
     toggleFavorite,
-    removeFromQueue,
-    clearQueue,
-    setCurrentQueueIndex,
     setCurrentSongIndex,
     playSong,
   } = useMusicStore()
 
-  const currentSong = songs && songs.length > 0 ? songs[currentSongIndex] : null
+  const currentSong: MusicSong | null = songs && songs.length > 0 ? songs[currentSongIndex] : null
 
   // Initialize audio element
   useEffect(() => {
@@ -83,6 +84,11 @@ export default function MusicPlayer() {
     }
 
     const handleEnded = () => {
+      // Track the song play when it ends (played for full duration)
+      if (currentSong) {
+        trackSongPlay(currentSong.id, Math.floor(duration))
+      }
+      
       if (repeatMode === 'single') {
         audio.currentTime = 0
         audio.play().catch(() => {})
@@ -94,6 +100,13 @@ export default function MusicPlayer() {
     const handleCanPlay = () => {
       if (isPlaying) {
         audio.play().catch(() => {})
+      }
+    }
+
+    const handlePlay = () => {
+      // Track when a song starts playing
+      if (currentSong) {
+        trackSongPlay(currentSong.id, 0) // 0 duration for start tracking
       }
     }
 
@@ -110,6 +123,7 @@ export default function MusicPlayer() {
     audio.addEventListener('loadedmetadata', handleLoadedMetadata)
     audio.addEventListener('ended', handleEnded)
     audio.addEventListener('canplay', handleCanPlay)
+    audio.addEventListener('play', handlePlay)
     audio.addEventListener('error', handleError)
     audio.addEventListener('loadstart', handleLoadStart)
 
@@ -118,10 +132,11 @@ export default function MusicPlayer() {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('canplay', handleCanPlay)
+      audio.removeEventListener('play', handlePlay)
       audio.removeEventListener('error', handleError)
       audio.removeEventListener('loadstart', handleLoadStart)
     }
-  }, [isPlaying, setCurrentTime, setDuration, repeatMode, nextSong, currentSong, currentSongIndex, dispatch])
+  }, [isPlaying, setCurrentTime, setDuration, repeatMode, nextSong, currentSong, currentSongIndex, dispatch, duration])
 
   // Handle current song changes
   useEffect(() => {
@@ -145,51 +160,35 @@ export default function MusicPlayer() {
     }
   }, [volume])
 
-  // Initialize anime.js animations
+  // Initialize GSAP animations
   useEffect(() => {
-    if (playerRef.current) {
-      const anime = getAnime()
-      if (anime) {
-        anime({
-          targets: playerRef.current,
-          opacity: [0, 1],
-          translateY: [20, 0],
-          duration: 800,
-          easing: 'easeOutExpo'
-        })
-      }
+    if (playerRef.current && isGSAPAvailable()) {
+      slideInFromBottom(playerRef.current, {
+        duration: 0.8,
+        ease: "power2.out"
+      })
     }
   }, [])
 
   // Animate progress bar
   useEffect(() => {
-    if (progressRef.current && duration > 0) {
-      const anime = getAnime()
-      if (anime) {
-        const progressPercent = (currentTime / duration) * 100
-        anime({
-          targets: progressRef.current,
-          width: `${Math.min(100, Math.max(0, progressPercent))}%`,
-          duration: 100,
-          easing: 'easeOutQuad'
-        })
-      }
+    if (progressRef.current && duration > 0 && isGSAPAvailable()) {
+      const progressPercent = (currentTime / duration) * 100
+      animateProgress(progressRef.current, `${Math.min(100, Math.max(0, progressPercent))}%`, {
+        duration: 0.1,
+        ease: "none"
+      })
     }
   }, [currentTime, duration])
 
   // Animate play/pause button
   useEffect(() => {
     const playButton = document.querySelector('.play-pause-btn')
-    if (playButton) {
-      const anime = getAnime()
-      if (anime) {
-        anime({
-          targets: playButton,
-          scale: isPlaying ? [1, 1.1, 1] : [1, 0.9, 1],
-          duration: 200,
-          easing: 'easeOutQuad'
-        })
-      }
+    if (playButton && isGSAPAvailable()) {
+      scaleButton(playButton, isPlaying ? 1.1 : 0.9, {
+        duration: 0.2,
+        ease: "power2.out"
+      })
     }
   }, [isPlaying])
 
@@ -214,37 +213,45 @@ export default function MusicPlayer() {
       await toggleFavorite(currentSong.id)
       // Animate heart icon
       const heartIcon = document.querySelector('.favorite-btn')
-      if (heartIcon) {
-        const anime = getAnime()
-        if (anime) {
-          anime({
-            targets: heartIcon,
-            scale: [1, 1.3, 1],
-            duration: 300,
-            easing: 'easeOutElastic(1, .8)'
-          })
-        }
-      }
-    }
-  }
-
-  const handleQueueToggle = () => {
-    setShowQueue(!showQueue)
-    // Animate queue panel
-    const queuePanel = document.querySelector('.queue-panel')
-    if (queuePanel) {
-      const anime = getAnime()
-      if (anime) {
-        anime({
-          targets: queuePanel,
-          opacity: showQueue ? [1, 0] : [0, 1],
-          translateX: showQueue ? [0, 20] : [20, 0],
-          duration: 300,
-          easing: 'easeOutQuad'
+      if (heartIcon && isGSAPAvailable()) {
+        animateHeart(heartIcon, {
+          duration: 0.3,
+          ease: "back.out(1.7)"
         })
       }
     }
   }
+
+  const handleDirectSongSelection = (songIndex: number) => {
+    if (songs && songs[songIndex]) {
+      setCurrentSongIndex(songIndex)
+    }
+  }
+
+  const handleDirectSongPlay = (songIndex: number) => {
+    if (songs && songs[songIndex]) {
+      playSong()
+    }
+  }
+
+  // Function to track song plays
+  const trackSongPlay = async (songId: string, playDuration: number = 0) => {
+    try {
+      await fetch('/api/track-play', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          songId,
+          playDuration
+        })
+      })
+    } catch (error) {
+      console.error('Error tracking song play:', error)
+    }
+  }
+
 
   // const handleStop = () => {
   //   if (audioRef.current) {
@@ -283,7 +290,7 @@ export default function MusicPlayer() {
   const isFavorite = favorites.includes(currentSong.id)
 
   return (
-    <div ref={playerRef} className="music-player relative p-3 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg">
+    <div ref={playerRef} className="music-player relative p-2 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg">
       <audio ref={audioRef} className="hidden" />
 
       <div className="flex items-center space-x-3">
@@ -312,6 +319,11 @@ export default function MusicPlayer() {
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium text-foreground truncate">{currentSong.title}</h3>
           <p className="text-xs text-muted-foreground truncate">{currentSong.artist}</p>
+          {currentQueue && currentQueue.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {currentQueueIndex + 1} of {currentQueue.length} in queue
+            </p>
+          )}
         </div>
 
         {/* Main Controls - Minimized */}
@@ -336,7 +348,7 @@ export default function MusicPlayer() {
 
           <button
             onClick={playPause}
-            className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
+            className="play-pause-btn p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
             title={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? <Pause size={16} /> : <Play size={16} />}
@@ -363,24 +375,32 @@ export default function MusicPlayer() {
 
         {/* Volume Control - Minimized */}
         <div className="flex items-center space-x-2">
-          <Volume2 size={12} className="text-muted-foreground" />
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={volume}
-            onChange={handleVolumeChange}
-            className="w-12 h-1 bg-muted rounded-lg appearance-none cursor-pointer"
-            aria-label="Volume control"
-          />
+          <button
+            onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+            className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-all duration-200"
+            title="Volume control"
+          >
+            <Volume2 size={12} />
+          </button>
+          {showVolumeSlider && (
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={volume}
+              onChange={handleVolumeChange}
+              className="w-12 h-1 bg-muted rounded-lg appearance-none cursor-pointer"
+              aria-label="Volume control"
+            />
+          )}
         </div>
 
         {/* Additional Controls - Minimized */}
         <div className="flex items-center space-x-1">
           <button
             onClick={handleFavoriteClick}
-            className={`p-1.5 rounded-full transition-all duration-200 ${
+            className={`favorite-btn p-1.5 rounded-full transition-all duration-200 ${
               isFavorite ? "text-red-500" : "text-muted-foreground hover:text-foreground"
             }`}
             title={isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -388,19 +408,59 @@ export default function MusicPlayer() {
             <Heart size={12} fill={isFavorite ? "currentColor" : "none"} />
           </button>
 
+          {onQueueClick && (
           <button
-            onClick={handleQueueToggle}
+              onClick={onQueueClick}
             className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-all duration-200"
-            title="Show Queue"
+              title="Show queue"
           >
             <List size={12} />
           </button>
+          )}
+          
+          {/* Song Selection Button */}
+          <button
+            onClick={() => {
+              // Show a simple song selection dialog or navigate to library
+              const randomIndex = Math.floor(Math.random() * (songs?.length || 1))
+              handleDirectSongSelection(randomIndex)
+            }}
+            className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-all duration-200"
+            title="Random song"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+              <path d="M3 21v-5h5"/>
+            </svg>
+          </button>
+          
+          {/* Play Now Button */}
+          <button
+            onClick={() => {
+              // Play a random song immediately
+              const randomIndex = Math.floor(Math.random() * (songs?.length || 1))
+              handleDirectSongPlay(randomIndex)
+            }}
+            className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-all duration-200"
+            title="Play random song now"
+          >
+            <Play size={12} />
+          </button>
+
         </div>
+      </div>
+
+      {/* Time Display - Above Progress Bar */}
+      <div className="flex justify-between text-xs text-muted-foreground font-mono mt-3 mb-1">
+        <span>{formatTime(currentTime)}</span>
+        <span>{formatTime(duration)}</span>
       </div>
 
       {/* Progress Bar - Minimized */}
       <div
-        className="progress-container relative h-0.5 bg-muted rounded-full cursor-pointer mt-2"
+        className="progress-container relative h-1 bg-muted rounded-full cursor-pointer"
         onClick={handleProgressClick}
         role="slider"
         aria-label="Seek position"
@@ -412,66 +472,10 @@ export default function MusicPlayer() {
         <div 
           ref={progressRef} 
           className="progress-bar absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-100"
-          style={{ width: "0%" }}
+          style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
         />
       </div>
 
-      {/* Time Display - Minimized */}
-      <div className="flex justify-between text-xs text-muted-foreground font-mono mt-1">
-        <span>{formatTime(currentTime)}</span>
-        <span>{formatTime(duration)}</span>
-      </div>
-
-      {/* Queue Panel - Positioned Above */}
-      {showQueue && (
-        <div className="queue-panel absolute bottom-full left-0 right-0 mb-2 bg-card border border-border rounded-lg shadow-lg p-4 max-h-64 overflow-y-auto">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-foreground">Queue ({currentQueue.length})</h3>
-            <button
-              onClick={clearQueue}
-              className="text-sm text-destructive hover:text-destructive/80"
-            >
-              Clear
-            </button>
-          </div>
-                  {!currentQueue || currentQueue.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Queue is empty</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {currentQueue.map((song: MusicSong, index: number) => (
-                <div
-                  key={song.id}
-                  className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                    index === currentQueueIndex ? 'bg-primary/10' : 'hover:bg-muted'
-                  }`}
-                          onClick={() => {
-                            setCurrentQueueIndex(index)
-                            setCurrentSongIndex(index)
-                            playSong()
-                          }}
-                >
-                  <div className="w-6 h-6 bg-muted rounded flex items-center justify-center text-xs font-mono">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{song.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeFromQueue(index)
-                    }}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

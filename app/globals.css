@@ -204,15 +204,6 @@
     }
   }
 
-  .progress-container:hover {
-    height: 0.75rem;
-  }
-
-  @media (min-width: 640px) {
-    .progress-container:hover {
-      height: 1rem;
-    }
-  }
 
   .progress-bar {
     height: 100%;
@@ -243,9 +234,6 @@
     }
   }
 
-  .progress-bar:hover::after {
-    opacity: 1;
-  }
 
   .controls {
     display: flex;

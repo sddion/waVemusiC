@@ -5,7 +5,7 @@ import { useMusicStore, type MusicSong } from "@/store/musicStore"
 import { usePersistentPlayback } from "@/hooks/usePersistentPlayback"
 import { usePlaylists } from "@/hooks/usePlaylists"
 import Image from "next/image"
-import { Play, Heart, Plus, X, List, Shuffle, Repeat } from "lucide-react"
+import { Play, Heart, Plus, X, List, Shuffle, Repeat, PlusCircle } from "lucide-react"
 import SpotlightCard from "@/components/SpotlightCard"
 import Recommendations from "@/components/Recommendations"
 
@@ -29,7 +29,8 @@ export default function HomePage() {
     shuffle,
     repeatMode,
     toggleShuffle,
-    toggleRepeat
+    toggleRepeat,
+    addToQueue
   } = useMusicStore()
   
   // Use persistent playback hook to prevent song restarting
@@ -45,6 +46,7 @@ export default function HomePage() {
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null)
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false)
   const [newPlaylistName, setNewPlaylistName] = useState("")
+  
 
   useEffect(() => {
     loadSongsWithFallback()
@@ -77,42 +79,14 @@ export default function HomePage() {
     await toggleFavorite(songId)
   }
 
+  const handleAddToQueue = (e: React.MouseEvent, song: MusicSong) => {
+    e.stopPropagation()
+    addToQueue(song)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container-responsive py-4 sm:py-6 lg:py-8 max-w-6xl">
-        {/* Hero Section */}
-        <div className="mb-8 sm:mb-12">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Welcome to Wave Music
-            </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Discover, play, and organize your favorite music with our modern streaming experience
-            </p>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{safeSongs.length}</div>
-              <div className="text-sm text-muted-foreground">Songs</div>
-            </div>
-            <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-4 text-center">
-              <div className="text-2xl font-bold text-secondary">{playlists.length}</div>
-              <div className="text-sm text-muted-foreground">Playlists</div>
-            </div>
-            <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-4 text-center">
-              <div className="text-2xl font-bold text-accent">{favorites.length}</div>
-              <div className="text-sm text-muted-foreground">Favorites</div>
-            </div>
-            <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-4 text-center">
-              <div className="text-2xl font-bold text-chart-4">
-                {Math.floor(safeSongs.reduce((acc, song) => acc + (song.duration || 0), 0) / 3600)}h
-              </div>
-              <div className="text-sm text-muted-foreground">Total Time</div>
-            </div>
-          </div>
-        </div>
 
               {/* Personalized Recommendations */}
               <div className="mb-8">
@@ -204,6 +178,13 @@ export default function HomePage() {
                               </div>
 
                               <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={(e) => handleAddToQueue(e, song)}
+                                  className="p-1.5 rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                                  title="Add to queue"
+                                >
+                                  <PlusCircle size={14} />
+                                </button>
                                 <button
                                   onClick={(e) => handleFavoriteClick(e, song.id)}
                                   className={`p-1.5 rounded-full transition-colors ${
@@ -325,6 +306,13 @@ export default function HomePage() {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={(e) => handleAddToQueue(e, song)}
+                                    className="p-1.5 rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                                    title="Add to queue"
+                                  >
+                                    <PlusCircle size={12} />
+                                  </button>
                                   <button
                                     onClick={(e) => handleFavoriteClick(e, song.id)}
                                     className="p-1.5 rounded-full transition-colors text-red-500 hover:bg-red-500/10"
@@ -518,6 +506,13 @@ export default function HomePage() {
                             <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
                           </div>
                           <div className="flex items-center space-x-2">
+                            <button
+                              onClick={(e) => handleAddToQueue(e, song)}
+                              className="p-1 rounded-full transition-colors text-muted-foreground hover:text-foreground"
+                              title="Add to queue"
+                            >
+                              <PlusCircle size={12} />
+                            </button>
                             <button
                               onClick={(e) => handleFavoriteClick(e, song.id)}
                               className={`p-1 rounded-full transition-colors ${

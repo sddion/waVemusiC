@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
 import { createClient } from "@/lib/supabase"
 import type { Song } from "@/lib/supabase"
+import { musicAPI, type StreamableSong, isApiSong, getOriginalSongId } from "@/lib/music-api"
 
 
 export interface MusicSong extends Song {
@@ -10,6 +11,9 @@ export interface MusicSong extends Song {
   file_size?: number
   file_type?: string
   checksum?: string
+  source?: 'local' | 'api'
+  stream_url?: string
+  preview_url?: string
 }
 
 interface MusicPlaybackState {
@@ -66,7 +70,9 @@ export interface MusicState {
   toggleShuffle: () => void
   setSearchQuery: (query: string) => void
   searchSongs: (query: string) => void
+  searchApiSongs: (query: string) => Promise<StreamableSong[]>
   playSelectedSong: (index: number) => void
+  playApiSong: (song: StreamableSong) => void
 
   // Enhanced actions
   setPlaybackState: (state: MusicPlaybackState) => void
@@ -238,6 +244,68 @@ export const useMusicStore = create<MusicState>()(
           (song.album && song.album.toLowerCase().includes(query.toLowerCase())),
       )
       set({ searchResults: results })
+    },
+
+    searchApiSongs: async (query) => {
+      try {
+        set({ isLoading: true })
+        const result = await musicAPI.searchSongs(query, 1, 20)
+        
+        // Convert StreamableSong to MusicSong format
+        const apiSongs: MusicSong[] = result.songs.map((song) => ({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album || '',
+          duration: song.duration,
+          cover_url: song.cover_url,
+          file_url: song.stream_url, // Use stream_url as file_url for API songs
+          source: 'api' as const,
+          stream_url: song.stream_url,
+          preview_url: song.preview_url,
+          genre: song.genre,
+          year: song.release_date ? parseInt(song.release_date) : undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }))
+
+        set({ isLoading: false })
+        return result.songs
+      } catch (error) {
+        console.error('Error searching API songs:', error)
+        set({ isLoading: false, error: 'Failed to search songs' })
+        return []
+      }
+    },
+
+    playApiSong: (song) => {
+      // Convert StreamableSong to MusicSong and add to queue
+      const musicSong: MusicSong = {
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        album: song.album || '',
+        duration: song.duration,
+        cover_url: song.cover_url,
+        file_url: song.stream_url,
+        source: 'api',
+        stream_url: song.stream_url,
+        preview_url: song.preview_url,
+        genre: song.genre,
+        year: song.release_date ? parseInt(song.release_date) : undefined,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      // Add to queue and play
+      const { currentQueue } = get()
+      const newQueue = [...currentQueue, musicSong]
+      set({ 
+        currentQueue: newQueue,
+        currentQueueIndex: newQueue.length - 1,
+        currentSongIndex: newQueue.length - 1,
+        isPlaying: true
+      })
     },
 
     playSelectedSong: (index) => {
