@@ -278,34 +278,73 @@ export const useMusicStore = create<MusicState>()(
       }
     },
 
-    playApiSong: (song) => {
-      // Convert StreamableSong to MusicSong and add to queue
-      const musicSong: MusicSong = {
-        id: song.id,
-        title: song.title,
-        artist: song.artist,
-        album: song.album || '',
-        duration: song.duration,
-        cover_url: song.cover_url,
-        file_url: song.stream_url,
-        source: 'api',
-        stream_url: song.stream_url,
-        preview_url: song.preview_url,
-        genre: song.genre,
-        year: song.release_date ? parseInt(song.release_date) : undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
+    playApiSong: async (song) => {
+      try {
+        // First try to get detailed song information with proper streaming URL
+        const originalSongId = song.id.replace('api_', '')
+        const detailedSong = await musicAPI.getSongDetails(originalSongId)
+        
+        // Use detailed song if available, otherwise use the search result
+        const songToPlay = detailedSong || song
+        
+        // Convert StreamableSong to MusicSong and add to queue
+        const musicSong: MusicSong = {
+          id: songToPlay.id,
+          title: songToPlay.title,
+          artist: songToPlay.artist,
+          album: songToPlay.album || '',
+          duration: songToPlay.duration,
+          cover_url: songToPlay.cover_url,
+          file_url: songToPlay.stream_url,
+          source: 'api',
+          stream_url: songToPlay.stream_url,
+          preview_url: songToPlay.preview_url,
+          genre: songToPlay.genre,
+          year: songToPlay.release_date ? parseInt(songToPlay.release_date) : undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
 
-      // Add to queue and play
-      const { currentQueue } = get()
-      const newQueue = [...currentQueue, musicSong]
-      set({ 
-        currentQueue: newQueue,
-        currentQueueIndex: newQueue.length - 1,
-        currentSongIndex: newQueue.length - 1,
-        isPlaying: true
-      })
+        // Add to queue and play
+        const { currentQueue } = get()
+        const newQueue = [...currentQueue, musicSong]
+        set({ 
+          currentQueue: newQueue,
+          currentQueueIndex: newQueue.length - 1,
+          currentSongIndex: newQueue.length - 1,
+          isPlaying: true
+        })
+        
+        console.log('Playing API song:', musicSong.title, 'Stream URL:', musicSong.stream_url)
+      } catch (error) {
+        console.error('Error playing API song:', error)
+        // Fallback to original song data
+        const musicSong: MusicSong = {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album || '',
+          duration: song.duration,
+          cover_url: song.cover_url,
+          file_url: song.stream_url,
+          source: 'api',
+          stream_url: song.stream_url,
+          preview_url: song.preview_url,
+          genre: song.genre,
+          year: song.release_date ? parseInt(song.release_date) : undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+
+        const { currentQueue } = get()
+        const newQueue = [...currentQueue, musicSong]
+        set({ 
+          currentQueue: newQueue,
+          currentQueueIndex: newQueue.length - 1,
+          currentSongIndex: newQueue.length - 1,
+          isPlaying: true
+        })
+      }
     },
 
     playSelectedSong: (index) => {

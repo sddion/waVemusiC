@@ -1,6 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 
+// TypeScript interfaces for trending songs API response
+interface TrendingSongData {
+  id: string
+  song_id: string
+  play_count: number
+  ranking: number
+  date: string
+  songs: {
+    id: string
+    title: string
+    artist: string
+    album: string | null
+    duration: number
+    file_url: string
+    cover_image_url: string | null
+    genre: string | null
+    year: number | null
+    play_count: number
+    last_played: string | null
+    created_at: string
+  }[] | null
+}
+
+interface FormattedTrendingSong {
+  id: string
+  title: string
+  artist: string
+  album: string | null
+  duration: number
+  file_url: string
+  cover_url: string | null
+  genre: string | null
+  year: number | null
+  play_count: number
+  last_played: string | null
+  created_at: string
+  trending_play_count: number
+  trending_ranking: number
+  trending_date: string
+}
+
+interface TrendingResponse {
+  songs: FormattedTrendingSong[]
+  date: string
+  total: number
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient()
@@ -42,29 +89,36 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the data to include song details
-    const formattedTrendingSongs = trendingSongs?.map((trending: any) => ({
-      id: trending.songs.id,
-      title: trending.songs.title,
-      artist: trending.songs.artist,
-      album: trending.songs.album,
-      duration: trending.songs.duration,
-      file_url: trending.songs.file_url,
-      cover_url: trending.songs.cover_image_url,
-      genre: trending.songs.genre,
-      year: trending.songs.year,
-      play_count: trending.songs.play_count,
-      last_played: trending.songs.last_played,
-      created_at: trending.songs.created_at,
-      trending_play_count: trending.play_count,
-      trending_ranking: trending.ranking,
-      trending_date: trending.date
-    })) || []
+    const formattedTrendingSongs: FormattedTrendingSong[] = trendingSongs
+      ?.filter((trending: TrendingSongData) => trending.songs !== null && trending.songs.length > 0)
+      ?.map((trending: TrendingSongData) => {
+        const song = trending.songs![0] // Get the first (and only) song from the array
+        return {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          duration: song.duration,
+          file_url: song.file_url,
+          cover_url: song.cover_image_url,
+          genre: song.genre,
+          year: song.year,
+          play_count: song.play_count,
+          last_played: song.last_played,
+          created_at: song.created_at,
+          trending_play_count: trending.play_count,
+          trending_ranking: trending.ranking,
+          trending_date: trending.date
+        }
+      }) || []
 
-    return NextResponse.json({
+    const response: TrendingResponse = {
       songs: formattedTrendingSongs,
       date,
       total: formattedTrendingSongs.length
-    })
+    }
+
+    return NextResponse.json(response)
 
   } catch (error) {
     console.error('Error in trending API:', error)

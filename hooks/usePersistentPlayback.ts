@@ -30,8 +30,11 @@ export function usePersistentPlayback() {
   
   const isInitialized = useRef(false)
 
-  // Initialize from localStorage on first load
+  // Initialize from localStorage on first load (client-side only)
   useEffect(() => {
+    // Only run on client side to prevent hydration mismatch
+    if (typeof window === 'undefined') return
+    
     if (!isInitialized.current && songs && songs.length > 0) {
       isInitialized.current = true
       

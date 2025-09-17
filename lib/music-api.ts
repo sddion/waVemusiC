@@ -24,11 +24,14 @@ export interface SearchResult {
 
 // JioSaavn API response interfaces based on saavn.dev documentation
 interface SaavnSearchResponse {
+  success?: boolean
+  data?: {
+    results?: SaavnSong[]
+    total?: number
+    start?: number
+  }
   results?: SaavnSong[]
   songs?: {
-    results: SaavnSong[]
-  }
-  data?: {
     results: SaavnSong[]
   }
   albums?: {
@@ -66,7 +69,19 @@ interface SaavnSong {
   track_name?: string
   primaryArtists?: string
   artist?: string
-  artists?: string
+  artists?: {
+    primary?: Array<{
+      name: string
+    }>
+    featured?: Array<{
+      name: string
+    }>
+    all?: Array<{
+      name: string
+    }>
+  } | string | Array<{
+    name: string
+  }>
   singer?: string
   album?: {
     name: string
@@ -78,6 +93,7 @@ interface SaavnSong {
   image?: Array<{
     quality: string
     link: string
+    url?: string
   }>
   images?: Array<{
     quality: string
@@ -94,6 +110,7 @@ interface SaavnSong {
   downloadUrl?: Array<{
     quality: string
     link: string
+    url?: string
   }>
   download_url?: Array<{
     quality: string
@@ -115,18 +132,20 @@ interface SaavnSong {
 }
 
 interface SaavnSongDetailsResponse {
-  id: string
-  name: string
-  primaryArtists: string
+  success?: boolean
+  data?: SaavnSong | SaavnSong[]
+  id?: string
+  name?: string
+  primaryArtists?: string
   album?: {
     name: string
   }
-  duration: string
-  image: Array<{
+  duration?: string
+  image?: Array<{
     quality: string
     link: string
   }>
-  downloadUrl: Array<{
+  downloadUrl?: Array<{
     quality: string
     link: string
   }>
@@ -135,7 +154,7 @@ interface SaavnSongDetailsResponse {
 }
 
 class MusicAPI {
-  private baseUrl = 'https://saavn.dev'
+  private baseUrl = 'https://saavn.dev/api'
   private fallbackApis = [
     'https://jiosaavn-api.vercel.app',
     'https://jiosaavn-api.herokuapp.com',
@@ -147,13 +166,13 @@ class MusicAPI {
   // Search for songs using multiple API endpoints with fallback
   async searchSongs(query: string, page: number = 1, limit: number = 20): Promise<SearchResult> {
     const searchEndpoints = [
-      // Try working endpoints first
+      // Try saavn.dev API first (correct endpoints)
+      `${this.baseUrl}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`,
+      `${this.baseUrl}/search?query=${encodeURIComponent(query)}`,
+      // Try working fallback endpoints
       ...this.fallbackApis.map(base => `${base}/search?query=${encodeURIComponent(query)}`),
       ...this.fallbackApis.map(base => `${base}/search/all?query=${encodeURIComponent(query)}`),
-      ...this.fallbackApis.map(base => `${base}/search/songs?query=${encodeURIComponent(query)}`),
-      // Try saavn.dev endpoints last
-      `${this.baseUrl}/search/all?query=${encodeURIComponent(query)}`,
-      `${this.baseUrl}/api/search/all?query=${encodeURIComponent(query)}`
+      ...this.fallbackApis.map(base => `${base}/search/songs?query=${encodeURIComponent(query)}`)
     ]
 
     for (const searchUrl of searchEndpoints) {
@@ -181,7 +200,14 @@ class MusicAPI {
         // Handle different response formats
         let songsData: SaavnSong[] = []
         
-        if (data.results && Array.isArray(data.results)) {
+        // Handle new saavn.dev API response structure
+        if (data.success && data.data) {
+          if (data.data.results && Array.isArray(data.data.results)) {
+            songsData = data.data.results
+          } else if (Array.isArray(data.data)) {
+            songsData = data.data
+          }
+        } else if (data.results && Array.isArray(data.results)) {
           songsData = data.results
         } else if (data.songs?.results && Array.isArray(data.songs.results)) {
           songsData = data.songs.results
@@ -220,32 +246,63 @@ class MusicAPI {
 
   // Get song details and streaming URL using the official API
   async getSongDetails(songId: string): Promise<StreamableSong | null> {
-    try {
-      const detailsUrl = `${this.baseUrl}/songs?id=${encodeURIComponent(songId)}`
-      
-      const response = await fetch(detailsUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9',
+    const detailEndpoints = [
+      `${this.baseUrl}/songs?ids=${encodeURIComponent(songId)}`,
+      `${this.baseUrl}/songs/${encodeURIComponent(songId)}`,
+      // Fallback to old endpoints
+      `${this.baseUrl}/songs?id=${encodeURIComponent(songId)}`,
+      ...this.fallbackApis.map(api => `${api}/songs?id=${encodeURIComponent(songId)}`)
+    ]
+
+    for (const detailsUrl of detailEndpoints) {
+      try {
+        console.log('Trying song details endpoint:', detailsUrl)
+
+        // Use proxy to avoid CORS issues
+        const proxyUrl = `/api/music-proxy?endpoint=${encodeURIComponent(detailsUrl.split('?')[0])}&songId=${encodeURIComponent(songId)}`
+        const response = await fetch(proxyUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(10000)
+        })
+
+        if (!response.ok) {
+          console.log(`Song details endpoint failed: ${response.status} ${response.statusText}`)
+          continue
         }
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
 
-      const data: SaavnSongDetailsResponse = await response.json()
-      
-      if (!data.id) {
-        return null
-      }
+        const data: SaavnSongDetailsResponse = await response.json()
 
-      return this.transformSaavnSong(data)
-    } catch (error) {
-      console.error('Error getting song details:', error)
-      return null
+        // Handle new saavn.dev API response structure
+        let songData: SaavnSong | null = null
+        if (data.success && data.data) {
+          if (Array.isArray(data.data) && data.data.length > 0) {
+            songData = data.data[0]
+          } else if (typeof data.data === 'object' && 'id' in data.data) {
+            songData = data.data
+          }
+        } else if (data.id) {
+          songData = data
+        }
+
+        if (!songData || !songData.id) {
+          console.log('No song ID in response, trying next endpoint')
+          continue
+        }
+
+        console.log('Successfully got song details from:', detailsUrl)
+        return this.transformSaavnSong(songData)
+      } catch (error) {
+        console.log(`Error with song details endpoint ${detailsUrl}:`, error instanceof Error ? error.message : String(error))
+        continue
+      }
     }
+
+    console.log('All song details endpoints failed')
+    return null
   }
 
   // Transform API response to our format (handles different API formats)
@@ -254,7 +311,9 @@ class MusicAPI {
       // Handle different API response formats
       const songId = item.id || item.song_id || item.track_id
       const songName = item.name || item.title || item.song_name || item.track_name
-      const artistName = item.primaryArtists || item.artist || item.artists || item.singer
+      const artistName = (typeof item.artists === 'object' && item.artists && 'primary' in item.artists) 
+        ? item.artists.primary?.[0]?.name 
+        : item.primaryArtists || item.artist || item.artists || item.singer
       const albumName = item.album?.name || item.album_name || item.album
       const songDuration = item.duration || item.length || item.duration_ms
       const downloadUrls = item.downloadUrl || item.download_url || item.media_url || item.audio_url
@@ -384,6 +443,18 @@ class MusicAPI {
   // Decode HTML entities
   private decodeHtmlEntities(text: string): string {
     if (!text) return ''
+    
+    // Only use document on client side to prevent hydration issues
+    if (typeof window === 'undefined') {
+      // Server-side fallback - basic HTML entity decoding
+      return text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+    }
     
     const textarea = document.createElement('textarea')
     textarea.innerHTML = text
