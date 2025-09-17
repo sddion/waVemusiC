@@ -35,20 +35,6 @@ export default function Recommendations() {
       songs: safeSongs.slice(6, 12),
       color: "rgba(14, 165, 233, 0.2)",
     },
-    {
-      title: "Recently Played",
-      subtitle: "Continue where you left off",
-      icon: <Clock className="w-5 h-5" />,
-      songs: safeSongs.slice(12, 18),
-      color: "rgba(34, 197, 94, 0.2)",
-    },
-    {
-      title: "Your Favorites",
-      subtitle: "Songs you love",
-      icon: <Heart className="w-5 h-5" />,
-      songs: safeSongs.filter(song => favorites.includes(song.id)).slice(0, 6),
-      color: "rgba(239, 68, 68, 0.2)",
-    },
   ]
 
   const handleSongClick = (index: number) => {

@@ -403,7 +403,7 @@ export default function HomePage() {
                   onChange={(e) => setNewPlaylistName(e.target.value)}
                   placeholder="Playlist name"
                   className="w-full p-3 border border-border rounded-lg bg-background text-foreground mb-4"
-                  onKeyPress={(e) => e.key === 'Enter' && handleCreatePlaylist()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreatePlaylist()}
                 />
                 <div className="flex space-x-3">
                   <button
