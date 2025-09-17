@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 
+// Force dynamic execution to prevent caching issues
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
-    // Verify the request is from Vercel's cron service
+    // Debug: Log all headers to understand what Vercel sends
+    console.log('Cron request headers:', Object.fromEntries(request.headers.entries()))
+    
+    // Vercel cron jobs send the secret in the Authorization header
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
     
-    // Vercel cron jobs send the secret in the Authorization header
+    console.log('Auth header present:', !!authHeader)
+    console.log('Cron secret configured:', !!cronSecret)
+    
     if (!cronSecret) {
       console.error('CRON_SECRET environment variable is not set')
       return NextResponse.json({ error: 'Cron secret not configured' }, { status: 500 })
     }
     
+    // Check for Vercel cron authentication
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request:', { authHeader: authHeader ? 'present' : 'missing' })
+      console.error('Unauthorized cron request:', { 
+        authHeader: authHeader ? 'present' : 'missing',
+        expected: `Bearer ${cronSecret}`,
+        received: authHeader
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
