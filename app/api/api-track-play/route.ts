@@ -9,31 +9,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Song ID is required' }, { status: 400 })
     }
 
-    // Check if it's an API song by looking for UUID format
-    // API songs now have proper UUIDs from the database
-    // We'll track them using the api-track-play endpoint
-    // This endpoint is only for regular songs
-
     const supabase = createClient()
 
-    // Call the database function to track the play
-    const { error } = await supabase.rpc('track_song_play', {
+    // Call the database function to track the API song play
+    const { error } = await supabase.rpc('track_api_song_play', {
       p_song_id: songId,
       p_play_duration: playDuration
     })
 
     if (error) {
-      console.error('Error tracking song play:', error)
+      console.error('Error tracking API song play:', error)
       return NextResponse.json({ error: 'Failed to track song play' }, { status: 500 })
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Song play tracked successfully' 
+      message: 'API song play tracked successfully' 
     })
 
   } catch (error) {
-    console.error('Error in track-play API:', error)
+    console.error('Error in api-track-play API:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

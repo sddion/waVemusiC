@@ -20,12 +20,16 @@ function formatTime(seconds: number): string {
 export default function HomePage() {
   const { 
     songs, 
+    apiSongs,
     currentSongIndex, 
     isPlaying,
     playPause, 
     toggleFavorite, 
     favorites,
+    apiFavorites,
     loadSongsWithFallback,
+    loadApiSongs,
+    loadApiFavorites,
     shuffle,
     repeatMode,
     toggleShuffle,
@@ -50,7 +54,9 @@ export default function HomePage() {
 
   useEffect(() => {
     loadSongsWithFallback()
-  }, [loadSongsWithFallback])
+    loadApiSongs()
+    loadApiFavorites()
+  }, [loadSongsWithFallback, loadApiSongs, loadApiFavorites])
 
   // Playlists are now generated dynamically from actual data
 

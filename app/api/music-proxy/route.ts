@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
       },
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      signal: AbortSignal.timeout(5000) // 5 second timeout
     })
 
     if (!response.ok) {
@@ -56,6 +56,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data)
   } catch (error) {
     console.error('Proxy error:', error)
-    return NextResponse.json({ error: 'Failed to fetch from API' }, { status: 500 })
+    return NextResponse.json({ error: `Failed to fetch from API: ${error instanceof Error ? error.message : String(error)}` }, { status: 500 })
   }
 }

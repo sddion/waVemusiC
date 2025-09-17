@@ -22,7 +22,9 @@ export function usePlaylists() {
   
   // Safely extract values with fallbacks
   const songs = musicStore?.songs || []
+  const apiSongs = musicStore?.apiSongs || []
   const favorites = musicStore?.favorites || []
+  const apiFavorites = musicStore?.apiFavorites || []
 
   // Generate dynamic playlists based on actual data
   useEffect(() => {
@@ -34,47 +36,52 @@ export function usePlaylists() {
 
     const generatePlaylists = (): Playlist[] => {
       const safeSongs = songs || []
+      const safeApiSongs = apiSongs || []
+      const allSongs = [...safeSongs, ...safeApiSongs]
       const now = new Date().toISOString()
 
       // Create dynamic playlists based on actual song data
       const dynamicPlaylists: Playlist[] = []
 
-      // 1. All Songs playlist
-      if (safeSongs.length > 0) {
+      // 1. All Songs playlist (includes both local and API songs)
+      if (allSongs.length > 0) {
         dynamicPlaylists.push({
           id: 'all-songs',
           name: 'All Songs',
           description: 'Your complete music library',
-          songCount: safeSongs.length,
+          songCount: allSongs.length,
           color: 'rgba(59, 130, 246, 0.2)', // Blue
-          songs: safeSongs,
+          songs: allSongs,
           isPublic: false,
           createdAt: now,
           updatedAt: now,
         })
       }
 
-      // 2. Favorites playlist
-      if (favorites && favorites.length > 0) {
-        const favoriteSongs = safeSongs.filter(song => favorites.includes(song.id))
-        if (favoriteSongs.length > 0) {
-          dynamicPlaylists.push({
-            id: 'favorites',
-            name: 'My Favorites',
-            description: 'Songs you love',
-            songCount: favoriteSongs.length,
-            color: 'rgba(239, 68, 68, 0.2)', // Red
-            songs: favoriteSongs,
-            isPublic: false,
-            createdAt: now,
-            updatedAt: now,
-          })
-        }
+      // 2. Favorites playlist (includes both local and API favorites)
+      const favoriteSongs = safeSongs.filter(song => favorites.includes(song.id))
+      const favoriteApiSongs = safeApiSongs.filter(song => apiFavorites.includes(song.id))
+      const allFavoriteSongs = [...favoriteSongs, ...favoriteApiSongs]
+      
+      if (allFavoriteSongs.length > 0) {
+        dynamicPlaylists.push({
+          id: 'favorites',
+          name: 'My Favorites',
+          description: 'Songs you love',
+          songCount: allFavoriteSongs.length,
+          color: 'rgba(239, 68, 68, 0.2)', // Red
+          songs: allFavoriteSongs,
+          isPublic: false,
+          createdAt: now,
+          updatedAt: now,
+        })
       }
 
-      // 3. Recently Added (last 20 songs)
-      if (safeSongs.length > 0) {
-        const recentlyAdded = safeSongs.slice(-20).reverse()
+      // 3. Recently Added (last 20 songs from both local and API)
+      if (allSongs.length > 0) {
+        const recentlyAdded = allSongs
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 20)
         dynamicPlaylists.push({
           id: 'recently-added',
           name: 'Recently Added',
@@ -89,7 +96,7 @@ export function usePlaylists() {
       }
 
       // 4. Long Songs (songs longer than 4 minutes)
-      const longSongs = safeSongs.filter(song => (song.duration || 0) > 240)
+      const longSongs = allSongs.filter(song => (song.duration || 0) > 240)
       if (longSongs.length > 0) {
         dynamicPlaylists.push({
           id: 'long-songs',
@@ -105,7 +112,7 @@ export function usePlaylists() {
       }
 
       // 5. Short Songs (songs shorter than 3 minutes)
-      const shortSongs = safeSongs.filter(song => (song.duration || 0) < 180 && (song.duration || 0) > 0)
+      const shortSongs = allSongs.filter(song => (song.duration || 0) < 180 && (song.duration || 0) > 0)
       if (shortSongs.length > 0) {
         dynamicPlaylists.push({
           id: 'short-songs',
@@ -122,7 +129,7 @@ export function usePlaylists() {
 
       // 6. Genre-based playlists (if genre data exists)
       const genreMap = new Map<string, MusicSong[]>()
-      safeSongs.forEach(song => {
+      allSongs.forEach(song => {
         if (song.genre) {
           if (!genreMap.has(song.genre)) {
             genreMap.set(song.genre, [])
@@ -167,7 +174,7 @@ export function usePlaylists() {
       setPlaylists([])
       setIsLoading(false)
     }
-  }, [songs, favorites])
+  }, [songs, apiSongs, favorites, apiFavorites])
 
   // Create a new playlist
   const createPlaylist = (name: string, description?: string, isPublic: boolean = false): Playlist => {

@@ -24,6 +24,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
 
   const {
     songs,
+    apiSongs,
     currentSongIndex,
     isPlaying,
     currentTime,
@@ -34,6 +35,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
     currentQueue,
     currentQueueIndex,
     favorites,
+    apiFavorites,
     setCurrentTime,
     setDuration,
     setVolume,
@@ -48,7 +50,12 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
     playSong,
   } = useMusicStore()
 
-  const currentSong: MusicSong | null = songs && songs.length > 0 ? songs[currentSongIndex] : null
+  // Use queue if available, otherwise fall back to songs array
+  const currentSong: MusicSong | null = currentQueue && currentQueue.length > 0 
+    ? currentQueue[currentQueueIndex] 
+    : songs && songs.length > 0 
+      ? songs[currentSongIndex] 
+      : null
 
   // Initialize audio element
   useEffect(() => {
@@ -74,7 +81,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
         dispatch(setLastPlayedInfo({
           songId: currentSong.id,
           time: audio.currentTime,
-          index: currentSongIndex
+          index: currentQueue && currentQueue.length > 0 ? currentQueueIndex : currentSongIndex
         }))
       }
     }
@@ -136,7 +143,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
       audio.removeEventListener('error', handleError)
       audio.removeEventListener('loadstart', handleLoadStart)
     }
-  }, [isPlaying, setCurrentTime, setDuration, repeatMode, nextSong, currentSong, currentSongIndex, dispatch, duration])
+  }, [isPlaying, setCurrentTime, setDuration, repeatMode, nextSong, currentSong, currentSongIndex, currentQueue, currentQueueIndex, dispatch, duration])
 
   // Handle current song changes
   useEffect(() => {
@@ -150,7 +157,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
     if (isPlaying) {
       audio.play().catch(() => {})
     }
-  }, [currentSongIndex, currentSong, isPlaying])
+  }, [currentSongIndex, currentQueueIndex, currentSong, isPlaying])
 
   // Handle volume changes
   useEffect(() => {
@@ -274,7 +281,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
   // Sync playback state
   useEffect(() => {
     syncPlaybackState()
-  }, [currentSongIndex, isPlaying, currentTime, volume, repeatMode, shuffle, syncPlaybackState])
+  }, [currentSongIndex, currentQueueIndex, isPlaying, currentTime, volume, repeatMode, shuffle, syncPlaybackState])
 
   if (!currentSong) {
     return (
@@ -287,7 +294,7 @@ export default function MusicPlayer({ onQueueClick }: MusicPlayerProps) {
     )
   }
 
-  const isFavorite = favorites.includes(currentSong.id)
+  const isFavorite = favorites.includes(currentSong.id) || apiFavorites.includes(currentSong.id)
 
   return (
     <div ref={playerRef} className="music-player relative p-2 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg">

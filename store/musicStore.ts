@@ -31,6 +31,7 @@ interface MusicPlaybackState {
 export interface MusicState {
   // Core state
   songs: MusicSong[]
+  apiSongs: MusicSong[] // API songs from database
   currentSongIndex: number
   isPlaying: boolean
   currentTime: number
@@ -53,10 +54,12 @@ export interface MusicState {
   currentQueueIndex: number
   playlists: Playlist[]
   favorites: string[]
+  apiFavorites: string[] // API song favorites
   currentPlaylist: string | null
 
   // Actions
   setSongs: (songs: MusicSong[]) => void
+  setApiSongs: (songs: MusicSong[]) => void
   setCurrentSongIndex: (index: number) => void
   playPause: () => void
   playSong: () => void
@@ -102,6 +105,9 @@ export interface MusicState {
   // Favorites management
   toggleFavorite: (songId: string) => Promise<void>
   loadFavorites: () => Promise<void>
+  toggleApiFavorite: (songId: string) => Promise<void>
+  loadApiFavorites: () => Promise<void>
+  loadApiSongs: () => Promise<void>
 
   // Auto-generated playlists
   generateAlbumPlaylist: (album: string) => void
@@ -126,6 +132,7 @@ export const useMusicStore = create<MusicState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
     songs: [], // Start with empty array, load from Supabase
+    apiSongs: [], // API songs from database
     currentSongIndex: 0,
     isPlaying: false,
     currentTime: 0,
@@ -147,12 +154,18 @@ export const useMusicStore = create<MusicState>()(
     currentQueueIndex: 0,
     playlists: [],
     favorites: [],
+    apiFavorites: [],
     currentPlaylist: null,
 
     // Core actions
     setSongs: (songs) => {
       set({ songs })
       console.log("Songs loaded:", songs.length)
+    },
+
+    setApiSongs: (songs) => {
+      set({ apiSongs: songs })
+      console.log("API songs loaded:", songs.length)
     },
 
     setCurrentSongIndex: (index) => {
@@ -287,9 +300,38 @@ export const useMusicStore = create<MusicState>()(
         // Use detailed song if available, otherwise use the search result
         const songToPlay = detailedSong || song
         
-        // Convert StreamableSong to MusicSong and add to queue
+        // Validate that we have a stream URL
+        if (!songToPlay.stream_url) {
+          console.error('No stream URL available for song:', songToPlay.title)
+          throw new Error('No stream URL available')
+        }
+        
+        // Store API song in database
+        const supabase = createClient()
+        const { data: apiSongId, error } = await supabase.rpc('get_or_create_api_song', {
+          p_external_id: originalSongId,
+          p_title: songToPlay.title,
+          p_artist: songToPlay.artist,
+          p_album: songToPlay.album || null,
+          p_genre: songToPlay.genre || null,
+          p_year: songToPlay.release_date ? parseInt(songToPlay.release_date) : null,
+          p_duration: songToPlay.duration,
+          p_stream_url: songToPlay.stream_url,
+          p_cover_url: songToPlay.cover_url,
+          p_preview_url: songToPlay.preview_url || null,
+          p_source: 'saavn',
+          p_language: songToPlay.language || null,
+          p_release_date: songToPlay.release_date || null
+        })
+        
+        if (error) {
+          console.error('Error storing API song:', error)
+          throw error
+        }
+        
+        // Convert StreamableSong to MusicSong with database ID
         const musicSong: MusicSong = {
-          id: songToPlay.id,
+          id: apiSongId, // Use database UUID instead of api_ prefix
           title: songToPlay.title,
           artist: songToPlay.artist,
           album: songToPlay.album || '',
@@ -315,35 +357,35 @@ export const useMusicStore = create<MusicState>()(
           isPlaying: true
         })
         
-        console.log('Playing API song:', musicSong.title, 'Stream URL:', musicSong.stream_url)
+        console.log('Playing API song:', musicSong.title, 'Database ID:', apiSongId)
       } catch (error) {
         console.error('Error playing API song:', error)
         // Fallback to original song data
-        const musicSong: MusicSong = {
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-          album: song.album || '',
-          duration: song.duration,
-          cover_url: song.cover_url,
-          file_url: song.stream_url,
-          source: 'api',
-          stream_url: song.stream_url,
-          preview_url: song.preview_url,
-          genre: song.genre,
-          year: song.release_date ? parseInt(song.release_date) : undefined,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
+      const musicSong: MusicSong = {
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        album: song.album || '',
+        duration: song.duration,
+        cover_url: song.cover_url,
+        file_url: song.stream_url,
+        source: 'api',
+        stream_url: song.stream_url,
+        preview_url: song.preview_url,
+        genre: song.genre,
+        year: song.release_date ? parseInt(song.release_date) : undefined,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
 
-        const { currentQueue } = get()
-        const newQueue = [...currentQueue, musicSong]
-        set({ 
-          currentQueue: newQueue,
-          currentQueueIndex: newQueue.length - 1,
-          currentSongIndex: newQueue.length - 1,
-          isPlaying: true
-        })
+      const { currentQueue } = get()
+      const newQueue = [...currentQueue, musicSong]
+      set({ 
+        currentQueue: newQueue,
+        currentQueueIndex: newQueue.length - 1,
+        currentSongIndex: newQueue.length - 1,
+        isPlaying: true
+      })
       }
     },
 
@@ -673,40 +715,66 @@ export const useMusicStore = create<MusicState>()(
     toggleFavorite: async (songId) => {
       try {
         const supabase = createClient()
-        const { favorites } = get()
+        const { favorites, apiFavorites, songs, apiSongs } = get()
         
-        if (favorites.includes(songId)) {
+        // Check if it's an API song by looking at the songs arrays
+        const isApiSong = apiSongs.some(song => song.id === songId)
+        
+        if (isApiSong) {
+          // Handle API song favorites
+          if (apiFavorites.includes(songId)) {
           // Remove from favorites
           const { error } = await supabase
-            .from("public_favorites")
+              .from("api_favorites")
             .delete()
             .eq("song_id", songId)
 
-          if (error) {
-            return
+            if (!error) {
+              set((state) => ({
+                apiFavorites: state.apiFavorites.filter(id => id !== songId)
+              }))
+            }
+          } else {
+            // Add to favorites
+            const { error } = await supabase
+              .from("api_favorites")
+              .insert({ song_id: songId })
+            
+            if (!error) {
+              set((state) => ({
+                apiFavorites: [...state.apiFavorites, songId]
+              }))
+            }
           }
+        } else {
+          // Handle regular song favorites
+          if (favorites.includes(songId)) {
+            // Remove from favorites
+            const { error } = await supabase
+              .from("public_favorites")
+              .delete()
+              .eq("song_id", songId)
 
+            if (!error) {
           set((state) => ({
             favorites: state.favorites.filter(id => id !== songId)
           }))
+            }
         } else {
           // Add to favorites
           const { error } = await supabase
             .from("public_favorites")
-            .insert({
-              song_id: songId,
-            })
+              .insert({ song_id: songId })
 
-          if (error) {
-            return
-          }
-
+            if (!error) {
           set((state) => ({
             favorites: [...state.favorites, songId]
           }))
+            }
+          }
         }
       } catch (error) {
-        // Failed to toggle favorite
+        console.error('Error toggling favorite:', error)
       }
     },
 
@@ -725,7 +793,99 @@ export const useMusicStore = create<MusicState>()(
           favorites: favorites?.map(f => f.song_id) || []
         })
       } catch (error) {
-        // Failed to load favorites
+        console.error('Error loading favorites:', error)
+      }
+    },
+
+    loadApiFavorites: async () => {
+      try {
+        const supabase = createClient()
+        const { data: favorites, error } = await supabase
+          .from("api_favorites")
+          .select("song_id")
+
+        if (error) {
+          console.error('Error loading API favorites:', error)
+          return
+        }
+
+        set({ 
+          apiFavorites: favorites?.map(f => f.song_id) || []
+        })
+      } catch (error) {
+        console.error('Error loading API favorites:', error)
+      }
+    },
+
+    loadApiSongs: async () => {
+      try {
+        const supabase = createClient()
+        const { data: apiSongs, error } = await supabase
+          .from("api_songs")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error('Error loading API songs:', error)
+          return
+        }
+
+        // Convert API songs to MusicSong format
+        const musicSongs: MusicSong[] = apiSongs?.map(song => ({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album || '',
+          duration: song.duration,
+          cover_url: song.cover_url,
+          file_url: song.stream_url,
+          source: 'api',
+          stream_url: song.stream_url,
+          preview_url: song.preview_url,
+          genre: song.genre,
+          year: song.year,
+          created_at: song.created_at,
+          updated_at: song.updated_at
+        })) || []
+
+        set({ apiSongs: musicSongs })
+        console.log("API songs loaded:", musicSongs.length)
+      } catch (error) {
+        console.error('Error loading API songs:', error)
+      }
+    },
+
+    toggleApiFavorite: async (songId) => {
+      try {
+        const supabase = createClient()
+        const { apiFavorites } = get()
+        
+        if (apiFavorites.includes(songId)) {
+          // Remove from favorites
+          const { error } = await supabase
+            .from("api_favorites")
+            .delete()
+            .eq("song_id", songId)
+          
+          if (!error) {
+            set((state) => ({
+              apiFavorites: state.apiFavorites.filter(id => id !== songId)
+            }))
+          }
+        } else {
+          // Add to favorites
+          const { error } = await supabase
+            .from("api_favorites")
+            .insert({ song_id: songId })
+          
+          if (!error) {
+            set((state) => ({
+              apiFavorites: [...state.apiFavorites, songId]
+            }))
+          }
+        }
+      } catch (error) {
+        console.error('Error toggling API favorite:', error)
       }
     },
 
@@ -761,11 +921,14 @@ export const useMusicStore = create<MusicState>()(
     },
 
     generateFavoritesPlaylist: () => {
-      const { songs, favorites } = get()
+      const { songs, apiSongs, favorites, apiFavorites } = get()
       const favoriteSongs = songs.filter(song => favorites.includes(song.id))
-      if (favoriteSongs.length > 0) {
+      const favoriteApiSongs = apiSongs.filter(song => apiFavorites.includes(song.id))
+      const allFavoriteSongs = [...favoriteSongs, ...favoriteApiSongs]
+      
+      if (allFavoriteSongs.length > 0) {
         set({ 
-          currentQueue: favoriteSongs, 
+          currentQueue: allFavoriteSongs, 
           currentQueueIndex: 0,
           currentPlaylist: "favorites",
           currentSongIndex: 0,

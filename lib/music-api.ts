@@ -186,7 +186,7 @@ class MusicAPI {
           headers: {
             'Accept': 'application/json, text/plain, */*',
           },
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+                signal: AbortSignal.timeout(5000) // 5 second timeout
         })
         
         if (!response.ok) {
@@ -266,7 +266,7 @@ class MusicAPI {
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
           },
-          signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(5000)
         })
 
         if (!response.ok) {
@@ -388,7 +388,7 @@ class MusicAPI {
     return '/default-album-art.svg'
   }
 
-  // Get the best quality download URL (prefer 320kbps)
+  // Get the best quality download URL (prefer highest quality available)
   private getBestDownloadUrl(downloadUrls: string | Array<{url?: string, link?: string, quality: string}>): string {
     if (!downloadUrls) return ''
     
@@ -401,18 +401,45 @@ class MusicAPI {
     if (Array.isArray(downloadUrls)) {
       if (downloadUrls.length === 0) return ''
       
-      // Prefer higher quality audio
-      const qualityOrder = ['320kbps', '160kbps', '128kbps', '96kbps']
+      // Quality priority order (highest to lowest)
+      const qualityPriority = [
+        '320kbps',
+        '256kbps', 
+        '192kbps',
+        '160kbps',
+        '128kbps',
+        '96kbps',
+        '64kbps',
+        '48kbps',
+        '32kbps',
+        '16kbps',
+        '12kbps'
+      ]
       
-      for (const quality of qualityOrder) {
-        const download = downloadUrls.find(url => url.quality === quality)
-        if (download && download.link) {
-          return download.link
+      // Find the highest quality available
+      for (const priority of qualityPriority) {
+        const download = downloadUrls.find(url => 
+          url.quality && url.quality.toLowerCase() === priority.toLowerCase()
+        )
+        if (download) {
+          // Try different URL property names
+          const url = download.url || download.link
+          if (url) {
+            console.log(`🎵 Selected ${priority} quality for streaming`)
+            return url
+          }
         }
       }
       
       // Fallback to first available download URL
-      return downloadUrls[0].link || downloadUrls[0].url || ''
+      const firstDownload = downloadUrls[0]
+      if (firstDownload) {
+        const fallbackUrl = firstDownload.url || firstDownload.link
+        if (fallbackUrl) {
+          console.log(`🎵 Using fallback quality: ${firstDownload.quality || 'unknown'}`)
+          return fallbackUrl
+        }
+      }
     }
     
     return ''
